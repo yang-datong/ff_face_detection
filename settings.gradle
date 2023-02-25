@@ -1,2 +1,3 @@
 include ':app'
 rootProject.name = "ff_face_detection_yj"
+include ':java'
