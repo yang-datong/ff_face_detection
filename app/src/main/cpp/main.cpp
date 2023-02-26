@@ -23,8 +23,8 @@ JNIEXPORT void JNICALL faceDetection(JNIEnv *env, jobject thiz, jlong matAddrGra
     faceCascade.detectMultiScale(mGr, faces, 1.1, 2, 0 | CASCADE_SCALE_IMAGE, Size(30, 30));
 
     // Draw rectangles around detected faces
-    for (size_t i = 0; i < faces.size(); i++) {
-        rectangle(mRgb, faces[i], Scalar(255, 0, 0), 2, LINE_AA);
+    for (auto & face : faces) {
+        rectangle(mRgb, face, Scalar(255, 0, 0), 2, LINE_AA);
     }
 }
 
@@ -40,8 +40,8 @@ JNIEXPORT void JNICALL eyeDetection(JNIEnv *env, jobject thiz, jlong matAddrGray
     eyeCascade.detectMultiScale(mGr, eyes, 1.1, 2, 0 | CASCADE_SCALE_IMAGE, Size(30, 30));
 
     // Draw rectangles around detected eyes
-    for (size_t i = 0; i < eyes.size(); i++) {
-        rectangle(mRgb, eyes[i], Scalar(0, 255, 0), 2, LINE_AA);
+    for (auto & eye : eyes) {
+        rectangle(mRgb, eye, Scalar(0, 255, 0), 2, LINE_AA);
     }
 }
 
@@ -53,7 +53,7 @@ static JNINativeMethod nativeMethods[] = {
 
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
-    JNIEnv* env = NULL;
+    JNIEnv* env = nullptr;
     jint result = -1;
 
     if (vm->GetEnv((void**)&env, JNI_VERSION_1_6) != JNI_OK) {
@@ -61,7 +61,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
     }
 
     jclass clazz = env->FindClass("com/rl/ff_face_detection_yj/MainActivity_jni");
-    if (clazz == NULL) {
+    if (clazz == nullptr) {
         return -1;
     }
 

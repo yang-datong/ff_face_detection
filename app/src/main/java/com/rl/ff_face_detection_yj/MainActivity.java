@@ -27,7 +27,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity_2 extends CameraActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
+public class MainActivity extends CameraActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
     private JavaCameraView mOpenCvCameraView;
 
@@ -81,9 +81,9 @@ public class MainActivity_2 extends CameraActivity implements CameraBridgeViewBa
         }
 
 //         https://github.com/opencv/opencv/blob/master/data/haarcascades/haarcascade_frontalface_default.xml
-        faceDetector = loadCascadeClassifier(R.raw.haarcascade_frontalface_default,"haarcascade_frontalface_default.xml");
+        faceDetector = loadCascadeClassifier(R.raw.haarcascade_frontalface_default, "haarcascade_frontalface_default.xml");
 //         https://github.com/opencv/opencv/blob/master/data/haarcascades/haarcascade_eye.xml
-//        eyeDetector = loadCascadeClassifier(R.raw.haarcascade_eye,"haarcascade_eye.xml");
+        eyeDetector = loadCascadeClassifier(R.raw.haarcascade_eye, "haarcascade_eye.xml");
     }
 
 
@@ -103,7 +103,6 @@ public class MainActivity_2 extends CameraActivity implements CameraBridgeViewBa
             is.close();
             os.close();
 
-            Log.i(TAG, "loadCascadeClassifier: "+cascadeFile.getAbsolutePath());
             return new CascadeClassifier(cascadeFile.getAbsolutePath());
         } catch (Exception e) {
             e.printStackTrace();
@@ -164,9 +163,7 @@ public class MainActivity_2 extends CameraActivity implements CameraBridgeViewBa
         Rect[] facesArray = faces.toArray();
         for (Rect rect : facesArray) {
             Imgproc.rectangle(frame, rect.tl(), rect.br(), new Scalar(0, 255, 0, 255), 3);
-
 //            eye(frame,rect);
-
         }
 
 
@@ -178,16 +175,16 @@ public class MainActivity_2 extends CameraActivity implements CameraBridgeViewBa
         Mat faceROI = image.submat(face);
         MatOfRect eyes = new MatOfRect();
         if (eyeDetector != null)
-        eyeDetector.detectMultiScale(faceROI, eyes);
+            eyeDetector.detectMultiScale(faceROI, eyes);
 
         // 遍历每个眼睛
         for (Rect eye : eyes.toArray()) {
-            Log.i(TAG, "eye: "+eye.width);
+            Log.i(TAG, "eye: " + eye.width);
             // 在图像上绘制眼睛矩形
             Imgproc.rectangle(image, new Point(face.x + eye.x, face.y + eye.y), new Point(face.x + eye.x + eye.width, face.y + eye.y + eye.height), new Scalar(255, 0, 0), 2);
 
             // 计算眼睛的长宽比
-            double aspectRatio = (double)eye.width / (double)eye.height;
+            double aspectRatio = (double) eye.width / (double) eye.height;
 
 
             // 如果长宽比小于阈值，则表示眼睛闭合
