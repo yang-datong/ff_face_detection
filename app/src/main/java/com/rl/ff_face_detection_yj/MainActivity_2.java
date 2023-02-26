@@ -80,9 +80,9 @@ public class MainActivity_2 extends CameraActivity implements CameraBridgeViewBa
             Log.i(TAG, "OpenCV loaded successfully");
         }
 
-        //wget https://github.com/opencv/opencv/blob/master/data/haarcascades/haarcascade_frontalface_default.xml
+//         https://github.com/opencv/opencv/blob/master/data/haarcascades/haarcascade_frontalface_default.xml
         faceDetector = loadCascadeClassifier(R.raw.haarcascade_frontalface_default,"haarcascade_frontalface_default.xml");
-//        wget https://github.com/opencv/opencv/blob/master/data/haarcascades/haarcascade_eye.xml
+//         https://github.com/opencv/opencv/blob/master/data/haarcascades/haarcascade_eye.xml
 //        eyeDetector = loadCascadeClassifier(R.raw.haarcascade_eye,"haarcascade_eye.xml");
     }
 
