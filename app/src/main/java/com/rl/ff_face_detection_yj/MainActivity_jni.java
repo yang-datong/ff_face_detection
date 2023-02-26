@@ -3,18 +3,21 @@ package com.rl.ff_face_detection_yj;
 import android.os.Bundle;
 import android.view.SurfaceView;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.CameraActivity;
 import org.opencv.android.CameraBridgeViewBase;
+import org.opencv.android.JavaCamera2View;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Mat;
 
-public class MainActivity_jni extends AppCompatActivity {
+import java.util.ArrayList;
+import java.util.List;
+
+public class MainActivity_jni extends CameraActivity {
 
     static {
-        System.loadLibrary("native-lib");
+        System.loadLibrary("main");
     }
 
     private CameraBridgeViewBase mOpenCvCameraView;
@@ -29,8 +32,11 @@ public class MainActivity_jni extends AppCompatActivity {
         }
     };
 
-    static {
-        System.loadLibrary("native-lib");
+    @Override
+    protected List<? extends CameraBridgeViewBase> getCameraViewList() {
+        List<CameraBridgeViewBase> list = new ArrayList<>();
+        list.add(mOpenCvCameraView);
+        return list;
     }
 
     @Override
@@ -39,6 +45,7 @@ public class MainActivity_jni extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.java_camera_view);
+        mOpenCvCameraView.setCameraIndex(JavaCamera2View.CAMERA_ID_FRONT);
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(new CameraBridgeViewBase.CvCameraViewListener2() {
             @Override
