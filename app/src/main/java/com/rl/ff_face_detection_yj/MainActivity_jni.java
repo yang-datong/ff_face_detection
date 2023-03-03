@@ -1,6 +1,7 @@
 package com.rl.ff_face_detection_yj;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.SurfaceView;
 
 import org.opencv.android.BaseLoaderCallback;
@@ -21,7 +22,7 @@ public class MainActivity_jni extends CameraActivity {
     }
 
     private CameraBridgeViewBase mOpenCvCameraView;
-    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
+    private final BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
         public void onManagerConnected(int status) {
             if (status == LoaderCallbackInterface.SUCCESS) {
@@ -43,9 +44,11 @@ public class MainActivity_jni extends CameraActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        LoadModel();
-
+        String workPath = this.getFilesDir().getAbsolutePath();
+//        Log.e("TAG", "onCreate: "+workPath );
+        if (LoadModel(workPath, 2, "/lfw") == -1) {
+            System.exit(-1);
+        }
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.java_camera_view);
         mOpenCvCameraView.setCameraIndex(JavaCamera2View.CAMERA_ID_FRONT);
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
@@ -65,7 +68,7 @@ public class MainActivity_jni extends CameraActivity {
 
                 // Call JNI methods for face and eye detection
                 faceDetection(gray.getNativeObjAddr(), rgba.getNativeObjAddr());
-                eyeDetection(gray.getNativeObjAddr(), rgba.getNativeObjAddr());
+//                eyeDetection(gray.getNativeObjAddr(), rgba.getNativeObjAddr());
 
                 return rgba;
             }
@@ -103,6 +106,6 @@ public class MainActivity_jni extends CameraActivity {
 
     public native void eyeDetection(long matAddrGray, long matAddrRgba);
 
-    public native void LoadModel();
+    public native int LoadModel(String workPath, int arithmetic, String directory);
 }
 

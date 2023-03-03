@@ -23,12 +23,8 @@ android {
         }
 
         ndk {
-//            // 是否使用旧的APK构建方式，设置为true表示使用旧的构建方式
-//            stl = "c++_shared"
-//            // 配置NDK的其他选项
-//            // ...
-            abiFilters 'armeabi-v7a', 'arm64-v8a'
-//            moduleName "opencv"
+//            abiFilters 'armeabi-v7a', 'arm64-v8a'
+            abiFilters 'arm64-v8a'
         }
     }
     packagingOptions {
