@@ -44,6 +44,8 @@ public class MainActivity_jni extends CameraActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        LoadModel();
+
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.java_camera_view);
         mOpenCvCameraView.setCameraIndex(JavaCamera2View.CAMERA_ID_FRONT);
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
@@ -100,5 +102,7 @@ public class MainActivity_jni extends CameraActivity {
     public native void faceDetection(long matAddrGray, long matAddrRgba);
 
     public native void eyeDetection(long matAddrGray, long matAddrRgba);
+
+    public native void LoadModel();
 }
 

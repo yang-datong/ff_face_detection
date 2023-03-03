@@ -10,4 +10,6 @@ find_library(log-lib log )
 
 message("${CMAKE_SOURCE_DIR}/../jniLibs/arm64-v8a")
 
-target_link_libraries(main "${CMAKE_SOURCE_DIR}/../jniLibs/arm64-v8a/libopencv_java4.so" ${log-lib} )
+file( GLOB mylib ../jniLibs/arm64-v8a/*.so)
+
+target_link_libraries(main ${mylib}  ${log-lib} )
