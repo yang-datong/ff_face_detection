@@ -1,104 +1,308 @@
 package com.rl.ff_face_detection_yj;
 
+import android.Manifest;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.ImageFormat;
+import android.graphics.SurfaceTexture;
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.ImageReader;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.util.Log;
-import android.view.SurfaceView;
+import android.util.Size;
+import android.view.Surface;
+import android.view.TextureView;
 
-import org.opencv.android.BaseLoaderCallback;
-import org.opencv.android.CameraActivity;
-import org.opencv.android.CameraBridgeViewBase;
-import org.opencv.android.JavaCamera2View;
-import org.opencv.android.LoaderCallbackInterface;
-import org.opencv.android.OpenCVLoader;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import org.opencv.android.Utils;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.imgproc.Imgproc;
+import org.opencv.objdetect.CascadeClassifier;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collections;
 
-public class MainActivity_jni extends CameraActivity {
+public class MainActivity_jni extends AppCompatActivity {
+
+    private static final String TAG = "MainActivity";
+    private static final int REQUEST_CAMERA_PERMISSION = 200;
+
+    private CameraManager cameraManager;
+    private String cameraId;
+    private CameraDevice cameraDevice;
+    private TextureView textureView;
+    private Size previewSize;
+    private CaptureRequest.Builder captureRequestBuilder;
+    private CameraCaptureSession cameraCaptureSession;
+    private HandlerThread backgroundThread;
+    private Handler backgroundHandler;
+    private CascadeClassifier cascadeClassifier;
 
     static {
+//        System.loadLibrary("opencv_java4");
         System.loadLibrary("main");
     }
 
-    private CameraBridgeViewBase mOpenCvCameraView;
-    private final BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
-        @Override
-        public void onManagerConnected(int status) {
-            if (status == LoaderCallbackInterface.SUCCESS) {
-                mOpenCvCameraView.enableView();
-            } else {
-                super.onManagerConnected(status);
-            }
-        }
-    };
+    private Surface previewSurface;
 
-    @Override
-    protected List<? extends CameraBridgeViewBase> getCameraViewList() {
-        List<CameraBridgeViewBase> list = new ArrayList<>();
-        list.add(mOpenCvCameraView);
-        return list;
-    }
+    ImageReader mImageReader;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_main2);
+
         String workPath = this.getFilesDir().getAbsolutePath();
 //        Log.e("TAG", "onCreate: "+workPath );
-        if (JNI_Initialization(workPath, "lfw", "haarcascades/haarcascade_frontalface_default.xml",2) == -1) {
+        if (JNI_Initialization(workPath, "lfw", "haarcascades/haarcascade_frontalface_default.xml", 2) == -1) {
             onDestroy();
             System.exit(-1);
         }
-        mOpenCvCameraView = findViewById(R.id.java_camera_view);
-        mOpenCvCameraView.setCameraIndex(JavaCamera2View.CAMERA_ID_FRONT);
-        mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
-        mOpenCvCameraView.setCvCameraViewListener(new CameraBridgeViewBase.CvCameraViewListener2() {
+
+        textureView = findViewById(R.id.texture_view);
+        textureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
-            public void onCameraViewStarted(int width, int height) {
+            public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+                setupCamera();
+//                createCameraPreview();
             }
 
             @Override
-            public void onCameraViewStopped() {
+            public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+                // Ignored, Camera does all the work for us
             }
 
             @Override
-            public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
-                Mat gray = inputFrame.gray();
-                Mat rgba = inputFrame.rgba();
+            public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+                return false;
+            }
 
-                // Call JNI methods for face and eye detection
-                JNI_FaceDetection(gray.getNativeObjAddr(), rgba.getNativeObjAddr());
-                //JNI_EyeDetection(gray.getNativeObjAddr(), rgba.getNativeObjAddr());
-
-                return rgba;
+            @Override
+            public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+                // Invoked every time there's a new Camera preview frame
             }
         });
+
+    }
+
+    public void setupCamera() {
+        cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+        try {
+            for (String id : cameraManager.getCameraIdList()) {
+                CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(id);
+                Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
+
+                if (facing != null && facing == CameraCharacteristics.LENS_FACING_FRONT) {
+                    cameraId = id;
+                    break;
+                }
+            }
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+
+        // Get the preview size
+        try {
+            StreamConfigurationMap map = cameraManager.getCameraCharacteristics(cameraId)
+                    .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            previewSize = map.getOutputSizes(SurfaceTexture.class)[0];
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+
+        // Create an ImageReader for capturing still images
+        mImageReader = ImageReader.newInstance(previewSize.getWidth(),
+                previewSize.getHeight(), ImageFormat.JPEG, /*maxImages*/2);
+        mImageReader.setOnImageAvailableListener(imageReader -> {
+            Log.i(TAG, "onCreate:");
+
+//            Canvas canvas = previewSurface.lockCanvas(null);
+//             绘制矩形框
+//            canvas.drawRect(rectF, mRectPaint);
+//            previewSurface.unlockCanvasAndPost(canvas);
+
+        }, backgroundHandler);
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
+            return;
+        }
+        try {
+            cameraManager.openCamera(cameraId, new CameraDevice.StateCallback() {
+                @Override
+                public void onOpened(@NonNull CameraDevice camera) {
+                    cameraDevice = camera;
+                    createCameraPreview();
+                }
+
+                @Override
+                public void onDisconnected(@NonNull CameraDevice camera) {
+                    cameraDevice.close();
+                }
+
+                @Override
+                public void onError(@NonNull CameraDevice camera, int error) {
+                    cameraDevice.close();
+                    cameraDevice = null;
+                }
+            }, backgroundHandler);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+
+//        cascadeClassifier = new CascadeClassifier();
+//        cascadeClassifier.load(this.getFilesDir() + "/haarcascades/haarcascade_frontalface_default.xml");
+
     }
 
     @Override
-    public void onResume() {
+    protected void onResume() {
         super.onResume();
-        if (!OpenCVLoader.initDebug()) {
-            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, this, mLoaderCallback);
+        startBackgroundThread();
+        if (textureView.isAvailable()) {
+//            openCamera();
         } else {
-            mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
+//            textureView.setSurfaceTextureListener(surfaceTextureListener);
         }
     }
 
     @Override
-    public void onPause() {
+    protected void onPause() {
+        closeCamera();
+        stopBackgroundThread();
         super.onPause();
-        if (mOpenCvCameraView != null) {
-            mOpenCvCameraView.disableView();
+    }
+
+    private void startBackgroundThread() {
+        backgroundThread = new HandlerThread("CameraBackground");
+        backgroundThread.start();
+        backgroundHandler = new Handler(backgroundThread.getLooper());
+    }
+
+    private void stopBackgroundThread() {
+        backgroundThread.quitSafely();
+        try {
+            backgroundThread.join();
+            backgroundThread = null;
+            backgroundHandler = null;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        if (mOpenCvCameraView != null) {
-            mOpenCvCameraView.disableView();
+    private void createCameraPreview() {
+        try {
+
+            SurfaceTexture surfaceTexture = textureView.getSurfaceTexture();
+            surfaceTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
+            previewSurface = new Surface(surfaceTexture);
+
+            captureRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            captureRequestBuilder.addTarget(previewSurface);
+//
+            cameraDevice.createCaptureSession(Collections.singletonList(previewSurface), new CameraCaptureSession.StateCallback() {
+                @Override
+                public void onConfigured(@NonNull CameraCaptureSession session) {
+                    if (cameraDevice == null) {
+                        return;
+                    }
+                    cameraCaptureSession = session;
+                    updatePreview();
+                }
+
+                @Override
+                public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+                }
+            }, backgroundHandler);
+
+
+//            Surface imageReaderSurface = mImageReader.getSurface();
+//            captureRequestBuilder.addTarget(imageReaderSurface);
+//            cameraDevice.createCaptureSession(Arrays.asList(previewSurface, imageReaderSurface), new CameraCaptureSession.StateCallback() {
+//                @Override
+//                public void onConfigured(CameraCaptureSession session) {
+//                    try {
+//                        session.setRepeatingRequest(captureRequestBuilder.build(), null, backgroundHandler);
+//                    } catch (CameraAccessException e) {
+//                        e.printStackTrace();
+//                    }
+//                }
+//
+//                @Override
+//                public void onConfigureFailed(CameraCaptureSession session) {
+//                    // 配置失败的处理逻辑
+//                }
+//            }, backgroundHandler);
+
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void updatePreview() {
+        if (cameraDevice == null) {
+            return;
+        }
+        try {
+            captureRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+            cameraCaptureSession.setRepeatingRequest(captureRequestBuilder.build(), new CameraCaptureSession.CaptureCallback() {
+                @Override
+                public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
+                    super.onCaptureCompleted(session, request, result);
+
+                    Mat mat = textureView.getBitmap().getConfig() == Bitmap.Config.RGB_565 ?
+                            new Mat(textureView.getBitmap().getHeight(), textureView.getBitmap().getWidth(), CvType.CV_8UC2) :
+                            new Mat(textureView.getBitmap().getHeight(), textureView.getBitmap().getWidth(), CvType.CV_8UC4);
+//
+                    Utils.bitmapToMat(textureView.getBitmap(), mat);
+                    Mat grayMat = new Mat();
+                    Imgproc.cvtColor(mat, grayMat, Imgproc.COLOR_RGB2GRAY);
+
+
+                    // Call JNI methods for face and eye detection
+                    JNI_FaceDetection(grayMat.getNativeObjAddr(), mat.getNativeObjAddr());
+
+//
+//                    MatOfRect faces = new MatOfRect();
+//                    if (cascadeClassifier != null) {
+//                        cascadeClassifier.detectMultiScale(grayMat, faces);
+//                    }
+
+//                    for (Rect rect : faces.toArray()) {
+//                        Imgproc.rectangle(mat, new Point(rect.x, rect.y), new Point(rect.x + rect.width, rect.y + rect.height),
+//                                new Scalar(255, 0, 0), 2);
+//                        Log.e(TAG, "onCaptureCompleted: ");
+//                    }
+
+                }
+            }, backgroundHandler);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void closeCamera() {
+        if (cameraCaptureSession != null) {
+            cameraCaptureSession.close();
+            cameraCaptureSession = null;
+        }
+        if (cameraDevice != null) {
+            cameraDevice.close();
+            cameraDevice = null;
         }
     }
 
@@ -107,6 +311,5 @@ public class MainActivity_jni extends CameraActivity {
 
     public native void JNI_EyeDetection(long matAddrGray, long matAddrRgba);
 
-    public native int JNI_Initialization(String workPath, String dataDirectory, String cascadeFile,int arithmetic);
+    public native int JNI_Initialization(String workPath, String dataDirectory, String cascadeFile, int arithmetic);
 }
-

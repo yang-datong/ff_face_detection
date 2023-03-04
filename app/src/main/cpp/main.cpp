@@ -201,6 +201,7 @@ JNIEXPORT void JNICALL JNI_FaceDetection(JNIEnv *env, jobject thi, jlong matAddr
         //cv::putText(frame, std::to_string(confidence), cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 255, 0), 2);
         if(confidence < gKeys){
             string name = gLabelsName[label];
+            LOGE("name -> %s",name.c_str());
             cv::rectangle(mRgb, face, cv::Scalar(0, 255, 0), 2);
             cv::putText(mRgb, name, cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 255, 0), 2);
         }
