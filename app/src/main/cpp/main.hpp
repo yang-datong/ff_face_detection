@@ -13,6 +13,8 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/unistd.h>
+#include <utility>
 
 #define TAG "TAG---->"
 #define LOGI(...)  __android_log_print(ANDROID_LOG_INFO,  TAG, __VA_ARGS__ )
@@ -23,14 +25,12 @@ using std::vector;
 
 class FaceRecognizer{
 	public:
-		string LABEL_FILE = "/model/label_file.npy";
-		FaceRecognizer(string folderPath,cv::Size newSize ,const string& cascadeFile,int arithmetic);
+		FaceRecognizer(string workPath,string folderPath,cv::Size newSize ,const string& cascadeFile,int arithmetic);
 		void FillData(vector<cv::Mat>& images, vector<int>& labels);
 		void FetchModel();
 		cv::Ptr<cv::face::FaceRecognizer> getRecognizer();
 		int getKeys() const;
 		std::vector<string> getLabelsName();
-		void setWorkPath(string p);
 
 	private:
 		string _workPath;
@@ -45,11 +45,10 @@ class FaceRecognizer{
 		const int LBPH_FACE_KEYS = 100;
 		const int FISHER_FACE_KEYS = 4500;
 
-		string _local_model_file = "/model/LBPH_model.yml";
+		string _local_model_file ;
+		string _labelFile;
 		int _keys = LBPH_FACE_KEYS;
 		std::vector<string> _labels_name;
 };
-
-void faceRecognize(const cv::Mat& face_roi,cv::Mat frame,cv::Rect face);
 
 #endif /* end of include guard: MAIN_HPP_VDJI1OUJ */

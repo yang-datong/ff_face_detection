@@ -46,10 +46,11 @@ public class MainActivity_jni extends CameraActivity {
         setContentView(R.layout.activity_main);
         String workPath = this.getFilesDir().getAbsolutePath();
 //        Log.e("TAG", "onCreate: "+workPath );
-        if (LoadModel(workPath, 2, "/lfw") == -1) {
+        if (JNI_Initialization(workPath, "lfw", "haarcascades/haarcascade_frontalface_default.xml",2) == -1) {
+            onDestroy();
             System.exit(-1);
         }
-        mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.java_camera_view);
+        mOpenCvCameraView = findViewById(R.id.java_camera_view);
         mOpenCvCameraView.setCameraIndex(JavaCamera2View.CAMERA_ID_FRONT);
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(new CameraBridgeViewBase.CvCameraViewListener2() {
@@ -67,8 +68,8 @@ public class MainActivity_jni extends CameraActivity {
                 Mat rgba = inputFrame.rgba();
 
                 // Call JNI methods for face and eye detection
-                faceDetection(gray.getNativeObjAddr(), rgba.getNativeObjAddr());
-//                eyeDetection(gray.getNativeObjAddr(), rgba.getNativeObjAddr());
+                JNI_FaceDetection(gray.getNativeObjAddr(), rgba.getNativeObjAddr());
+                //JNI_EyeDetection(gray.getNativeObjAddr(), rgba.getNativeObjAddr());
 
                 return rgba;
             }
@@ -102,10 +103,10 @@ public class MainActivity_jni extends CameraActivity {
     }
 
 
-    public native void faceDetection(long matAddrGray, long matAddrRgba);
+    public native void JNI_FaceDetection(long matAddrGray, long matAddrRgba);
 
-    public native void eyeDetection(long matAddrGray, long matAddrRgba);
+    public native void JNI_EyeDetection(long matAddrGray, long matAddrRgba);
 
-    public native int LoadModel(String workPath, int arithmetic, String directory);
+    public native int JNI_Initialization(String workPath, String dataDirectory, String cascadeFile,int arithmetic);
 }
 
