@@ -7,8 +7,8 @@ std::string gDirectory = "lfw";
 std::string gWorkPath = "/data/user/0/com.rl.ff_face_detection_yj/files";
 std::string gCascadeFile = "haarcascades/haarcascade_frontalface_default.xml";
 cv::Ptr<cv::face::FaceRecognizer> gRecognizer = nullptr;
-int gKeys = -1;
 std::vector<string> gLabelsName;
+int gKeys = -1;
 
 int CheckFilePath(){
     int err;
@@ -125,8 +125,7 @@ void FaceRecognizer::FetchModel(){
 		vector<cv::Mat> images;
 		vector<int> labels;
 		LOGE("Train done out model -> %s",_local_model_file.c_str());
-		//		struct timespec start_time, end_time;
-		struct timespec start_time{}, end_time{}; //TODO
+		struct timespec start_time{}, end_time{};
 		LOGE("Filling image ...");
 		clock_gettime(CLOCK_REALTIME, &start_time);
 		FillData(images,labels);
