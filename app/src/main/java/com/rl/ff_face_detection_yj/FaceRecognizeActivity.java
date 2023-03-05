@@ -41,7 +41,6 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import org.opencv.android.Utils;
 import org.opencv.core.CvType;
@@ -60,7 +59,6 @@ import java.util.Date;
 public class FaceRecognizeActivity extends AppCompatActivity {
 
     private static final String TAG = "FaceRecognizeActivity";
-    private static final int REQUEST_CAMERA_PERMISSION = 0x111;
 
     private TextureView mTextureView;
     private ImageView mImageView;
@@ -76,6 +74,8 @@ public class FaceRecognizeActivity extends AppCompatActivity {
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
 
+    private int jni_initialization_status = -1 ; //用子线程加载人脸识别模型
+
     private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
 
     static {
@@ -85,6 +85,7 @@ public class FaceRecognizeActivity extends AppCompatActivity {
         ORIENTATIONS.append(Surface.ROTATION_180, 270);
         ORIENTATIONS.append(Surface.ROTATION_270, 180);
     }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -100,23 +101,16 @@ public class FaceRecognizeActivity extends AppCompatActivity {
         Button bt = findViewById(R.id.button_capture);
         bt.setOnClickListener(v -> takePicture());
 
-
         String workPath = this.getFilesDir().getAbsolutePath();
 //        Log.e("TAG", "onCreate: "+workPath );
-        if (JNI_Initialization(workPath, "lfw", "haarcascades/haarcascade_frontalface_default.xml", 2) == -1) {
-            showToast("JNI_Initialization Failed!!!!");
-            return;
-        }
 
+        new Thread(() -> {
+            Log.e(TAG, "run: jni initialization");
+            jni_initialization_status = JNI_Initialization(workPath, "lfw", "haarcascades/haarcascade_frontalface_default.xml", 2);
+            Log.e(TAG, "initialization finish" );
+        }).start();
 
-        // Request camera permission
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
-        } else {
-            mTextureView.setSurfaceTextureListener(surfaceTextureListener);
-        }
+        mTextureView.setSurfaceTextureListener(surfaceTextureListener);
     }
 
     TextureView.SurfaceTextureListener surfaceTextureListener = new TextureView.SurfaceTextureListener() {
@@ -158,21 +152,6 @@ public class FaceRecognizeActivity extends AppCompatActivity {
         closeCamera();
         stopBackgroundThread();
         super.onPause();
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if (requestCode == REQUEST_CAMERA_PERMISSION) {
-            if (grantResults.length == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Camera permission has been granted, start the camera preview
-//                mTextureView.setSurfaceTextureListener(surfaceTextureListener);
-            } else {
-                // Camera permission has been denied, show an error message
-                Toast.makeText(this, "Camera permission was not granted", Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        }
     }
 
     private void openCamera() {
@@ -409,6 +388,10 @@ public class FaceRecognizeActivity extends AppCompatActivity {
                     Mat grayMat = new Mat();
                     Imgproc.cvtColor(mat, grayMat, Imgproc.COLOR_RGB2GRAY);
 
+                    if (jni_initialization_status != 0){
+                        Log.e(TAG, "waiting jni initialization finnish ...");
+                        return;
+                    }
                     JNI_FaceDetection(grayMat.getNativeObjAddr(), mat.getNativeObjAddr());
                 }
 
