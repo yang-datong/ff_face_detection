@@ -202,12 +202,28 @@ JNIEXPORT void JNICALL JNI_FaceDetection(JNIEnv *env, jobject thi, jlong matAddr
         if(confidence < gKeys){
             string name = gLabelsName[label];
             LOGE("name -> %s",name.c_str());
-            cv::rectangle(mRgb, face, cv::Scalar(0, 255, 0), 2);
-            cv::putText(mRgb, name, cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 255, 0), 2);
+
+			// 获取MyClass类中的一个方法
+			jmethodID method = env->GetMethodID(env->GetObjectClass(thi), "showToast",
+												"(Ljava/lang/String;)V");
+			if (method == nullptr) {
+				// 如果找不到myMethod方法，抛出一个异常
+				env->ThrowNew(env->FindClass("java/lang/NoSuchMethodError"), "myMethod not found");
+				return;
+			}
+
+			jstring str = env->NewStringUTF(name.c_str());
+			// 调用myMethod方法
+			env->CallVoidMethod(thi, method,str);
+
+            //显示绿色框
+//            cv::rectangle(mRgb, face, cv::Scalar(0, 255, 0), 2);
+//            cv::putText(mRgb, name, cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 255, 0), 2);
         }
         else{
-            cv::rectangle(mRgb, face, cv::Scalar(0, 0, 255), 2);
-            cv::putText(mRgb, "unknown", cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 0, 255), 2);
+        	//显示红色框
+//            cv::rectangle(mRgb, face, cv::Scalar(0, 0, 255), 2);
+//            cv::putText(mRgb, "unknown", cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 0, 255), 2);
         }
 	}
 }

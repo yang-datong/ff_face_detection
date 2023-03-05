@@ -74,7 +74,7 @@ public class FaceRecognizeActivity extends AppCompatActivity {
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
 
-    private int jni_initialization_status = -1 ; //用子线程加载人脸识别模型
+    private int jni_initialization_status = -1; //用子线程加载人脸识别模型
 
     private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
 
@@ -107,7 +107,7 @@ public class FaceRecognizeActivity extends AppCompatActivity {
         new Thread(() -> {
             Log.e(TAG, "run: jni initialization");
             jni_initialization_status = JNI_Initialization(workPath, "lfw", "haarcascades/haarcascade_frontalface_default.xml", 2);
-            Log.e(TAG, "initialization finish" );
+            Log.e(TAG, "initialization finish");
         }).start();
 
         mTextureView.setSurfaceTextureListener(surfaceTextureListener);
@@ -388,7 +388,7 @@ public class FaceRecognizeActivity extends AppCompatActivity {
                     Mat grayMat = new Mat();
                     Imgproc.cvtColor(mat, grayMat, Imgproc.COLOR_RGB2GRAY);
 
-                    if (jni_initialization_status != 0){
+                    if (jni_initialization_status != 0) {
                         Log.e(TAG, "waiting jni initialization finnish ...");
                         return;
                     }
