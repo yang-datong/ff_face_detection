@@ -446,7 +446,6 @@ public class MainActivity_jni extends AppCompatActivity {
 }
 ```
 
-
 # 使用的Camera2版本，没有运行成功，代码不错，还没添加Opencv代码
 
 ```java

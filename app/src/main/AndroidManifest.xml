@@ -18,6 +18,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Ff_face_detection_yj">
         <activity android:name=".MainActivity_jni"
+
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
