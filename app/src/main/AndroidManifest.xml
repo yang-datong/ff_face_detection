@@ -27,6 +27,11 @@
             android:name=".FaceRecognizeActivity"
             android:exported="true">
         </activity>
+
+        <activity
+            android:name=".UploadFaceActivity"
+            android:exported="true">
+        </activity>
     </application>
 
 </manifest>

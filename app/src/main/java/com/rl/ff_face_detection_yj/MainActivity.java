@@ -24,8 +24,13 @@ public class MainActivity extends AppCompatActivity {
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
-        }else {
-            startActivity(new Intent(this, FaceRecognizeActivity.class));
+        } else {
+            findViewById(R.id.detection).setOnClickListener(v -> {
+                startActivity(new Intent(this, FaceRecognizeActivity.class));
+            });
+            findViewById(R.id.upload).setOnClickListener(v -> {
+                startActivity(new Intent(this, UploadFaceActivity.class));
+            });
         }
     }
 

@@ -31,6 +31,8 @@ import android.util.Size;
 import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.TextureView;
+import android.view.View;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -81,9 +83,11 @@ public class FaceRecognize {
         ORIENTATIONS.append(Surface.ROTATION_270, 180);
     }
 
-    public void onCreate(TextureView textureView, Activity context) {
-        if (textureView == null || context == null) return;
-        activity = context;
+    private ImageView showImageView = null;
+
+    public void onCreate(TextureView textureView, Activity activity) {
+        if (textureView == null || activity == null) return;
+        this.activity = activity;
         mTextureView = textureView;
         loadJNIFaceModel();
         mTextureView.setSurfaceTextureListener(surfaceTextureListener);
@@ -165,7 +169,7 @@ public class FaceRecognize {
                 Image image = imageReader.acquireLatestImage();
 //                saveImageToGallery(image);
                 if (image == null) {
-                    Log.e(TAG, "setOnImageAvailableListener image == null ");
+//                    Log.e(TAG, "setOnImageAvailableListener image == null ");
                     return;
                 }
                 ByteBuffer buffer = image.getPlanes()[0].getBuffer();
@@ -203,6 +207,27 @@ public class FaceRecognize {
             e.printStackTrace();
         }
     }
+
+    //TODO 显示上传照片后经过人脸检测后的人脸图片,目前使用OpenCV Java API简单实现
+//    private void getRange(){
+//        // 为人脸检测设置参数
+//        MatOfRect faces = new MatOfRect();
+//
+//        Mat frame = inputFrame.rgba();
+//        Mat grayFrame = inputFrame.gray();
+//
+//        // 在灰度图像中检测人脸
+//        if (faceDetector != null) {
+//            faceDetector.detectMultiScale(grayFrame, faces);
+//        }
+//
+//        // 绘制检测到的人脸矩形
+//        Rect[] facesArray = faces.toArray();
+//        for (Rect rect : facesArray) {
+//            Imgproc.rectangle(frame, rect.tl(), rect.br(), new Scalar(0, 255, 0, 255), 3);
+////            eye(frame,rect);
+//        }
+//    }
 
     private void closeCamera() {
         if (mCaptureSession != null) {
@@ -312,7 +337,11 @@ public class FaceRecognize {
         }
     }
 
-    private void takePicture() {
+    public void uploadFaceImage(ImageView showImageView) {
+        this.showImageView = showImageView;
+    }
+
+    public void takePicture() {
         try {
 //            if (mCameraDevice == null) {
 //                return;
@@ -361,6 +390,9 @@ public class FaceRecognize {
 //                    Log.e(TAG, "Capture completed");
 //                    unlockFocus();
 
+                    if (showImageView != null) {
+                        return;
+                    }
                     //进行人脸识别会导致图片截取很缓慢
                     Mat mat = mTextureView.getBitmap().getConfig() == Bitmap.Config.RGB_565 ?
                             new Mat(mTextureView.getBitmap().getHeight(), mTextureView.getBitmap().getWidth(), CvType.CV_8UC2) :
@@ -446,7 +478,8 @@ public class FaceRecognize {
     private void saveImage(byte[] data) {
 //        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
 //        File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "IMG_" + timeStamp + ".jpg");
-        File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "IMG.jpg");
+//        File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "IMG.jpg");
+        File file = new File(activity.getFilesDir().getAbsolutePath(), "/IMG.jpg");
         try {
             FileOutputStream outputStream = new FileOutputStream(file);
             Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
@@ -455,18 +488,30 @@ public class FaceRecognize {
             matrix.postRotate(-90);
             matrix.postScale(-1, 1);
             Bitmap rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-//                runOnUiThread(() -> {
-//                    mImageView.setImageBitmap(rotatedBitmap);
-//                    mImageView.setVisibility(View.VISIBLE);
-//                });
-//                runOnUiThread(() ->
-//                        mImageView.setVisibility(View.GONE)
-//                );
+            activity.runOnUiThread(() -> {
+                showImageView.setImageBitmap(rotatedBitmap);
+                showImageView.setVisibility(View.VISIBLE);
+            });
+
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                Log.e(TAG, "saveImage: e->" + e);
+                e.printStackTrace();
+            }
+
+//            Thread thread = Thread.currentThread();
+//            Log.e(TAG, "saveImage: "+thread.getName() );
+//            Log.e(TAG, "saveImage: "+(thread.getName() == Looper.getMainLooper().getThread().getName()));
+            activity.runOnUiThread(() ->
+                    showImageView.setVisibility(View.GONE)
+            );
             rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
             outputStream.write(data);
             outputStream.close();
             Log.e(TAG, "Image saved to " + file.getAbsolutePath());
         } catch (IOException e) {
+            Log.e(TAG, "saveImage: e->" + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -530,7 +575,8 @@ public class FaceRecognize {
     private void showToast(final String text) {
         Log.e(TAG, "showToast: ");
 //        final Activity activity = activity;
-        activity.runOnUiThread(() -> Toast.makeText(activity, text, Toast.LENGTH_SHORT).show());
+        if (activity != null && !activity.isDestroyed())
+            activity.runOnUiThread(() -> Toast.makeText(activity, text, Toast.LENGTH_SHORT).show());
     }
 
     public native void JNI_FaceDetection(long matAddrGray, long matAddrRgba);

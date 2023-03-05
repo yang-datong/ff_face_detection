@@ -30,7 +30,6 @@
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
         android:text="Capture"
-        android:visibility="gone"
         opencv:layout_constraintBottom_toBottomOf="parent"
         opencv:layout_constraintEnd_toEndOf="parent"
         opencv:layout_constraintHorizontal_bias="0.5"
