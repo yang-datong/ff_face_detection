@@ -17,7 +17,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Ff_face_detection_yj">
-        <activity android:name=".MainActivity_jni"
+        <activity android:name=".FaceRecognizeActivity"
 
             android:exported="true">
             <intent-filter>

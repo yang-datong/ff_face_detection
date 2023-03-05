@@ -1,4 +1,4 @@
-#include "main.hpp"
+#include "faceRecognize.hpp"
 
 #include <utility>
 
@@ -243,7 +243,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
 		return -1;
 	}
 
-	jclass clazz = env->FindClass("com/rl/ff_face_detection_yj/MainActivity_jni");
+	jclass clazz = env->FindClass("com/rl/ff_face_detection_yj/FaceRecognizeActivity");
 	if (clazz == nullptr) {
 		return -1;
 	}

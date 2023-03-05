@@ -57,10 +57,10 @@ import java.util.Arrays;
 import java.util.Date;
 
 // TODO:上传人脸照片时，照片不能太大不然识别不来
-public class MainActivity_jni extends AppCompatActivity {
+public class FaceRecognizeActivity extends AppCompatActivity {
 
-    private static final String TAG = "MainActivity";
-    private static final int REQUEST_CAMERA_PERMISSION = 1;
+    private static final String TAG = "FaceRecognizeActivity";
+    private static final int REQUEST_CAMERA_PERMISSION = 0x111;
 
     private TextureView mTextureView;
     private ImageView mImageView;
@@ -79,7 +79,7 @@ public class MainActivity_jni extends AppCompatActivity {
     private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
 
     static {
-        System.loadLibrary("main");
+        System.loadLibrary("faceRecognize");
         ORIENTATIONS.append(Surface.ROTATION_0, 90);
         ORIENTATIONS.append(Surface.ROTATION_90, 0);
         ORIENTATIONS.append(Surface.ROTATION_180, 270);
@@ -93,7 +93,7 @@ public class MainActivity_jni extends AppCompatActivity {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-        setContentView(R.layout.activity_main2);
+        setContentView(R.layout.activity_face_recognize);
 
         mTextureView = findViewById(R.id.texture_view);
         mImageView = findViewById(R.id.image_view);
@@ -321,7 +321,7 @@ public class MainActivity_jni extends AppCompatActivity {
 
                         @Override
                         public void onConfigureFailed(@NonNull CameraCaptureSession session) {
-                            Toast.makeText(MainActivity_jni.this, "Configuration failed", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(FaceRecognizeActivity.this, "Configuration failed", Toast.LENGTH_SHORT).show();
                         }
                     }, mBackgroundHandler);
         } catch (CameraAccessException e) {
@@ -382,7 +382,7 @@ public class MainActivity_jni extends AppCompatActivity {
         }
     }
 
-    private CameraCaptureSession.CaptureCallback mCaptureCallback =
+    private final CameraCaptureSession.CaptureCallback mCaptureCallback =
             new CameraCaptureSession.CaptureCallback() {
 
                 @Override

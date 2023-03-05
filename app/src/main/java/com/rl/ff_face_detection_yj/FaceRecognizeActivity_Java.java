@@ -27,7 +27,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends CameraActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
+public class FaceRecognizeActivity_Java extends CameraActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
     private JavaCameraView mOpenCvCameraView;
 
@@ -43,7 +43,7 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_face_recognize_java);
         mOpenCvCameraView = (JavaCameraView) findViewById(R.id.java_camera_view);
         mOpenCvCameraView.setCvCameraViewListener(this);
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
