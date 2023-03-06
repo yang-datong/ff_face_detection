@@ -3,6 +3,7 @@
 #include <utility>
 
 int gArithmetic = 2; //Default use LBPHFaceRecognizer
+cv::Size gNewSize = cv::Size(92,112);
 std::string gDirectory = "lfw";
 std::string gWorkPath = "/data/user/0/com.rl.ff_face_detection_yj/files";
 std::string gCascadeFile = "haarcascades/haarcascade_frontalface_default.xml";
@@ -170,7 +171,7 @@ JNIEXPORT int JNICALL JNI_Initialization(JNIEnv *env, jobject thi, jstring workP
         return -1;
     }
 
-    FaceRecognizer face(gWorkPath,gDirectory,cv::Size(92,112),gCascadeFile,gArithmetic);
+    FaceRecognizer face(gWorkPath,gDirectory,gNewSize,gCascadeFile,gArithmetic);
     //  face.setWorkPath(gWorkPath);
     face.FetchModel();
     gRecognizer = face.getRecognizer();
@@ -179,8 +180,48 @@ JNIEXPORT int JNICALL JNI_Initialization(JNIEnv *env, jobject thi, jstring workP
     return 0;
 }
 
+JNIEXPORT int JNICALL JNI_JustSaveFaceImage(JNIEnv *env, jobject thi,jstring oldFaceImagePath) {
+    // Load the cascade classifier
+    cv::CascadeClassifier faceCascade;
+    faceCascade.load(gCascadeFile);
+
+    string filepath = env->GetStringUTFChars(oldFaceImagePath,nullptr);
+
+    cv::Mat grayImg = imread(filepath, cv::IMREAD_GRAYSCALE);
+    cv::Mat img = imread(filepath, cv::IMREAD_COLOR);
+    if (grayImg.empty())
+        return -1;
+    vector<cv::Rect> faces;
+    faceCascade.detectMultiScale(grayImg, faces, 1.1, 5);
+
+    cv::Mat face_roi;
+    for (const auto& face : faces) {
+        //face_roi = grayImg(face); //save gray image
+        face_roi = img(face); //save color image
+        if (face_roi.empty())
+            continue;
+        resize(face_roi, face_roi, gNewSize);
+        //images.push_back(face_roi);
+        //labels.push_back(index);
+        //labelsName.push_back(filename);
+        //index++;
+    }
+    if(!face_roi.empty()){
+        if (!cv::imwrite(filepath, face_roi)){
+            std::cerr << "Failed to save image." << std::endl;
+            return -1;
+        }
+        /* TODO: 先将class指针变为全局，这样太麻烦了 */
+        //_recognizer->update(images,labels);
+
+    }else{
+        LOGE("empty");
+    }
+
+    return 0;
+}
+
 JNIEXPORT void JNICALL JNI_FaceDetection(JNIEnv *env, jobject thi, jlong matAddressGray, jlong matAddressRgba) {
-//JNIEXPORT void JNICALL JNI_FaceDetection(JNIEnv *env, jobject thi, jlong matAddressGray, jlong matAddressRgba,jbyteArray faceRecognize) {
     cv::Mat &mGr = *(cv::Mat *) matAddressGray;
     cv::Mat &mRgb = *(cv::Mat *) matAddressRgba;
 
@@ -196,82 +237,80 @@ JNIEXPORT void JNICALL JNI_FaceDetection(JNIEnv *env, jobject thi, jlong matAddr
     for (auto & face : faces) {
         rectangle(mRgb, face, cv::Scalar(255, 0, 0), 2, cv::LINE_AA);
         //resize(face_roi, face_roi, _newSize);
-//        if (faceRecognize){
-            int label = -1;
-            double confidence = 0.0;
-            gRecognizer->predict(mGr(face),label,confidence);
-            //cv::putText(frame, std::to_string(confidence), cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 255, 0), 2);
-            if(confidence < gKeys) {
-                string name = gLabelsName[label];
-                LOGE("name -> %s", name.c_str());
+        //        if (faceRecognize){
+        int label = -1;
+        double confidence = 0.0;
+        gRecognizer->predict(mGr(face),label,confidence);
+        //cv::putText(frame, std::to_string(confidence), cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 255, 0), 2);
+        if(confidence < gKeys) {
+            string name = gLabelsName[label];
+            LOGE("name -> %s", name.c_str());
 
-                jmethodID method = env->GetMethodID(env->GetObjectClass(thi), "showToast",
-                        "(Ljava/lang/String;)V");
-                if (method == nullptr) {
-                    env->ThrowNew(env->FindClass("java/lang/NoSuchMethodError"), "myMethod not found");
-                    return;
-                }
-
-                jstring str = env->NewStringUTF(name.c_str());
-                // 调用myMethod方法
-                env->CallVoidMethod(thi, method, str);
-
-                //显示绿色框
-                //cv::rectangle(mRgb, face, cv::Scalar(0, 255, 0), 2);
-                //cv::putText(mRgb, name, cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 255, 0), 2);
+            jmethodID method = env->GetMethodID(env->GetObjectClass(thi), "showToast",
+                    "(Ljava/lang/String;)V");
+            if (method == nullptr) {
+                env->ThrowNew(env->FindClass("java/lang/NoSuchMethodError"), "myMethod not found");
+                return;
             }
+
+            jstring str = env->NewStringUTF(name.c_str());
+            // 调用myMethod方法
+            env->CallVoidMethod(thi, method, str);
+
+            //显示绿色框
+            //cv::rectangle(mRgb, face, cv::Scalar(0, 255, 0), 2);
+            //cv::putText(mRgb, name, cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 255, 0), 2);
+        }
         else{
             //显示红色框
-            //            cv::rectangle(mRgb, face, cv::Scalar(0, 0, 255), 2);
-            //            cv::putText(mRgb, "unknown", cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 0, 255), 2);
+            //cv::rectangle(mRgb, face, cv::Scalar(0, 0, 255), 2);
+            //cv::putText(mRgb, "unknown", cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 0, 255), 2);
         }
-//		} else{
-//			faceRecognize = mRgb.data;
-//        }
-	}
-}
-
-JNIEXPORT void JNICALL JNI_EyeDetection(JNIEnv *env, jobject thi, jlong matAddressGray, jlong matAddressRgba) {
-    cv::Mat &mGr = *(cv::Mat *) matAddressGray;
-    cv::Mat &mRgb = *(cv::Mat *) matAddressRgba;
-    // Load the cascade classifier
-    //cv::CascadeClassifier eyeCascade;
-    //eyeCascade.load("/haarcascades/haarcascade_eye.xml");
-    //
-    //// Detect eyes
-    //std::vector<cv::Rect> eyes;
-    //eyeCascade.detectMultiScale(mGr, eyes, 1.1, 2, 0 | cv::CASCADE_SCALE_IMAGE, cv::Size(30, 30));
-    //
-    //// Draw rectangles around detected eyes
-    //for (auto & eye : eyes) {
-    //  rectangle(mRgb, eye, cv::Scalar(0, 255, 0), 2, cv::LINE_AA);
-    //}
-}
-
-static JNINativeMethod nativeMethods[] = {
-    {"JNI_FaceDetection", "(JJ)V", (void*)JNI_FaceDetection},
-    {"JNI_EyeDetection", "(JJ)V", (void*)JNI_EyeDetection},
-    {"JNI_Initialization", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)I", (void*)JNI_Initialization}
-};
-
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
-    JNIEnv* env = nullptr;
-    jint result = -1;
-
-    if (vm->GetEnv((void**)&env, JNI_VERSION_1_6) != JNI_OK) {
-        return -1;
+    }
     }
 
-    jclass clazz = env->FindClass("com/rl/ff_face_detection_yj/FaceRecognize");
-    if (clazz == nullptr) {
-        return -1;
+    JNIEXPORT void JNICALL JNI_EyeDetection(JNIEnv *env, jobject thi, jlong matAddressGray, jlong matAddressRgba) {
+        cv::Mat &mGr = *(cv::Mat *) matAddressGray;
+        cv::Mat &mRgb = *(cv::Mat *) matAddressRgba;
+        // Load the cascade classifier
+        //cv::CascadeClassifier eyeCascade;
+        //eyeCascade.load("/haarcascades/haarcascade_eye.xml");
+        //
+        //// Detect eyes
+        //std::vector<cv::Rect> eyes;
+        //eyeCascade.detectMultiScale(mGr, eyes, 1.1, 2, 0 | cv::CASCADE_SCALE_IMAGE, cv::Size(30, 30));
+        //
+        //// Draw rectangles around detected eyes
+        //for (auto & eye : eyes) {
+        //  rectangle(mRgb, eye, cv::Scalar(0, 255, 0), 2, cv::LINE_AA);
+        //}
     }
 
-    if (env->RegisterNatives(clazz, nativeMethods, sizeof(nativeMethods) / sizeof(nativeMethods[0])) != JNI_OK) {
-        return -1;
+    static JNINativeMethod nativeMethods[] = {
+        {"JNI_FaceDetection", "(JJ)V", (void*)JNI_FaceDetection},
+        {"JNI_EyeDetection", "(JJ)V", (void*)JNI_EyeDetection},
+        {"JNI_Initialization", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)I", (void*)JNI_Initialization},
+        {"JNI_JustSaveFaceImage", "(Ljava/lang/String;)I", (void*)JNI_JustSaveFaceImage}
+    };
+
+    JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
+        JNIEnv* env = nullptr;
+        jint result = -1;
+
+        if (vm->GetEnv((void**)&env, JNI_VERSION_1_6) != JNI_OK) {
+            return -1;
+        }
+
+        jclass clazz = env->FindClass("com/rl/ff_face_detection_yj/FaceRecognize");
+        if (clazz == nullptr) {
+            return -1;
+        }
+
+        if (env->RegisterNatives(clazz, nativeMethods, sizeof(nativeMethods) / sizeof(nativeMethods[0])) != JNI_OK) {
+            return -1;
+        }
+
+        result = JNI_VERSION_1_6;
+
+        return result;
     }
-
-    result = JNI_VERSION_1_6;
-
-    return result;
-}

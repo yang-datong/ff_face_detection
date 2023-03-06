@@ -488,28 +488,38 @@ public class FaceRecognize {
             matrix.postRotate(-90);
             matrix.postScale(-1, 1);
             Bitmap rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+            rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
+            outputStream.write(data);
+            outputStream.close();
+            Log.e(TAG, "Image saved to " + file.getAbsolutePath());
+            if (JNI_JustSaveFaceImage(file.getAbsolutePath()) == -1) {
+                showToast("未识别到人脸，上传人脸失败!!!");
+                return;
+            }
+
             activity.runOnUiThread(() -> {
                 showImageView.setImageBitmap(rotatedBitmap);
                 showImageView.setVisibility(View.VISIBLE);
             });
 
             try {
-                Thread.sleep(2000);
+                Thread.sleep(1500);
             } catch (InterruptedException e) {
                 Log.e(TAG, "saveImage: e->" + e);
                 e.printStackTrace();
             }
 
-//            Thread thread = Thread.currentThread();
-//            Log.e(TAG, "saveImage: "+thread.getName() );
-//            Log.e(TAG, "saveImage: "+(thread.getName() == Looper.getMainLooper().getThread().getName()));
             activity.runOnUiThread(() ->
                     showImageView.setVisibility(View.GONE)
             );
-            rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
-            outputStream.write(data);
-            outputStream.close();
-            Log.e(TAG, "Image saved to " + file.getAbsolutePath());
+
+            if (!bitmap.isRecycled()) {
+                bitmap.recycle();
+            }
+            if (!rotatedBitmap.isRecycled()) {
+                rotatedBitmap.recycle();
+            }
+
         } catch (IOException e) {
             Log.e(TAG, "saveImage: e->" + e.getMessage());
             e.printStackTrace();
@@ -584,4 +594,6 @@ public class FaceRecognize {
     public native void JNI_EyeDetection(long matAddrGray, long matAddrRgba);
 
     public native int JNI_Initialization(String workPath, String dataDirectory, String cascadeFile, int arithmetic);
+
+    public native int JNI_JustSaveFaceImage(String oldFaceImagePath);
 }
