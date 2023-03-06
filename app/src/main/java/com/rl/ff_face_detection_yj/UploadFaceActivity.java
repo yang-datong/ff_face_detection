@@ -44,4 +44,10 @@ public class UploadFaceActivity extends AppCompatActivity {
         faceRecognize.onPause();
         super.onPause();
     }
+
+    @Override
+    protected void onDestroy() {
+        faceRecognize.onDestroy();
+        super.onDestroy();
+    }
 }

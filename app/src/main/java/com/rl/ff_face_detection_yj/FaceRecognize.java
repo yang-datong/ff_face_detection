@@ -139,6 +139,10 @@ public class FaceRecognize {
         stopBackgroundThread();
     }
 
+    public void onDestroy() {
+//        JNI_Close();  //会导致卡顿、崩溃 TODO
+    }
+
     private void openCamera() {
         mCameraManager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
         try {
@@ -596,4 +600,6 @@ public class FaceRecognize {
     public native int JNI_Initialization(String workPath, String dataDirectory, String cascadeFile, int arithmetic);
 
     public native int JNI_JustSaveFaceImage(String oldFaceImagePath);
+
+    public native void JNI_Close();
 }
