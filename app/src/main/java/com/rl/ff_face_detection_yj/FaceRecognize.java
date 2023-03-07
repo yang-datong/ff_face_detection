@@ -2,6 +2,7 @@ package com.rl.ff_face_detection_yj;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -29,9 +30,11 @@ import android.os.HandlerThread;
 import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
+import android.view.Gravity;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -51,7 +54,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Date;
 
-// TODO:上传人脸照片时，照片不能太大不然识别不来
 public class FaceRecognize {
 
     private static final String TAG = "FaceRecognize";
@@ -69,11 +71,13 @@ public class FaceRecognize {
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
 
-    private int jni_initialization_status = -1; //用子线程加载人脸识别模型
+    private static int jni_initialization_status = -1; //用子线程加载人脸识别模型
 
     private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
 
     private Activity activity;
+
+    private ImageView showImageView = null;
 
     static {
         System.loadLibrary("faceRecognize");
@@ -83,23 +87,33 @@ public class FaceRecognize {
         ORIENTATIONS.append(Surface.ROTATION_270, 180);
     }
 
-    private ImageView showImageView = null;
+    private Dialog progressDialog = null;
+    private boolean inUploadingFaceImage = false;
+
+
+    public static void loadJNIFaceModel(Context application) {
+        new Thread(() -> {
+            Log.e(TAG, "run: jni initialization");
+            String workPath = application.getFilesDir().getAbsolutePath();
+//            String workPath = "/sdcard";
+            jni_initialization_status = JNI_Initialization(workPath, "lfw", "haarcascades/haarcascade_frontalface_default.xml", 2);
+            Log.e(TAG, "initialization finish -> jni_initialization_status:" + jni_initialization_status);
+        }).start();
+    }
+
+    public static void onDestroy() {
+        JNI_Close();
+    }
 
     public void onCreate(TextureView textureView, Activity activity) {
         if (textureView == null || activity == null) return;
         this.activity = activity;
         mTextureView = textureView;
-        loadJNIFaceModel();
+        if (jni_initialization_status != 0) {
+            showToast("等待模型加载中，如果长时间未加载成功则模型错误");
+            return;
+        }
         mTextureView.setSurfaceTextureListener(surfaceTextureListener);
-    }
-
-    private void loadJNIFaceModel() {
-        new Thread(() -> {
-            Log.e(TAG, "run: jni initialization");
-            String workPath = activity.getFilesDir().getAbsolutePath();
-            jni_initialization_status = JNI_Initialization(workPath, "lfw", "haarcascades/haarcascade_frontalface_default.xml", 2);
-            Log.e(TAG, "initialization finish");
-        }).start();
     }
 
     TextureView.SurfaceTextureListener surfaceTextureListener = new TextureView.SurfaceTextureListener() {
@@ -139,10 +153,6 @@ public class FaceRecognize {
         stopBackgroundThread();
     }
 
-    public void onDestroy() {
-//        JNI_Close();  //会导致卡顿、崩溃 TODO
-    }
-
     private void openCamera() {
         mCameraManager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
         try {
@@ -172,7 +182,12 @@ public class FaceRecognize {
                 // 图像可用时保存图像
                 Image image = imageReader.acquireLatestImage();
 //                saveImageToGallery(image);
+
+
                 if (image == null) {
+                    if (progressDialog != null && progressDialog.isShowing())
+                        activity.runOnUiThread(() -> progressDialog.dismiss());
+                    inUploadingFaceImage = false;
 //                    Log.e(TAG, "setOnImageAvailableListener image == null ");
                     return;
                 }
@@ -211,27 +226,6 @@ public class FaceRecognize {
             e.printStackTrace();
         }
     }
-
-    //TODO 显示上传照片后经过人脸检测后的人脸图片,目前使用OpenCV Java API简单实现
-//    private void getRange(){
-//        // 为人脸检测设置参数
-//        MatOfRect faces = new MatOfRect();
-//
-//        Mat frame = inputFrame.rgba();
-//        Mat grayFrame = inputFrame.gray();
-//
-//        // 在灰度图像中检测人脸
-//        if (faceDetector != null) {
-//            faceDetector.detectMultiScale(grayFrame, faces);
-//        }
-//
-//        // 绘制检测到的人脸矩形
-//        Rect[] facesArray = faces.toArray();
-//        for (Rect rect : facesArray) {
-//            Imgproc.rectangle(frame, rect.tl(), rect.br(), new Scalar(0, 255, 0, 255), 3);
-////            eye(frame,rect);
-//        }
-//    }
 
     private void closeCamera() {
         if (mCaptureSession != null) {
@@ -346,11 +340,40 @@ public class FaceRecognize {
     }
 
     public void takePicture() {
+        if (jni_initialization_status != 0) {
+            Log.e(TAG, "waiting jni initialization finnish ...");
+            return;
+        }
         try {
 //            if (mCameraDevice == null) {
 //                return;
 //            }
             // Create a capture request builder for taking a picture
+            // 初始化ProgressDialog对象
+            if (progressDialog == null) {
+                progressDialog = new Dialog(activity, R.style.DialogStyle);
+                progressDialog.setCancelable(false);
+                progressDialog.setContentView(R.layout.dialog_loading);
+
+                // 设置ProgressDialog的位置和大小
+                WindowManager.LayoutParams layoutParams = progressDialog.getWindow().getAttributes();
+                layoutParams.gravity = Gravity.CENTER;
+                layoutParams.width = 500;
+                layoutParams.height = 500;
+                layoutParams.alpha = 0.7f;
+                progressDialog.getWindow().setAttributes(layoutParams);
+            }
+
+            // 显示ProgressDialog
+            if (!progressDialog.isShowing())
+                progressDialog.show();
+
+            if (inUploadingFaceImage) {
+                Log.e(TAG, "uploading face image ...");
+                return;
+            }
+
+            inUploadingFaceImage = true;
             CaptureRequest.Builder captureBuilder =
                     mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
             captureBuilder.addTarget(mImageReader.getSurface());
@@ -372,6 +395,7 @@ public class FaceRecognize {
             // 恢复相机预览
 //            mCaptureSession.setRepeatingRequest(captureBuilder.build(), mCaptureCallback, mBackgroundHandler);
         } catch (CameraAccessException e) {
+            inUploadingFaceImage = false;
             e.printStackTrace();
         }
     }
@@ -394,9 +418,10 @@ public class FaceRecognize {
 //                    Log.e(TAG, "Capture completed");
 //                    unlockFocus();
 
-                    if (showImageView != null) {
+                    if (mCaptureSession == null || mCameraDevice == null || mImageReader == null)
                         return;
-                    }
+                    if (showImageView != null) return;
+
                     //进行人脸识别会导致图片截取很缓慢
                     Mat mat = mTextureView.getBitmap().getConfig() == Bitmap.Config.RGB_565 ?
                             new Mat(mTextureView.getBitmap().getHeight(), mTextureView.getBitmap().getWidth(), CvType.CV_8UC2) :
@@ -410,6 +435,8 @@ public class FaceRecognize {
                         Log.e(TAG, "waiting jni initialization finnish ...");
                         return;
                     }
+
+//                    Log.e(TAG, "onCaptureCompleted: ");
                     JNI_FaceDetection(grayMat.getNativeObjAddr(), mat.getNativeObjAddr());
                 }
 
@@ -421,28 +448,6 @@ public class FaceRecognize {
 //                    unlockFocus();
                 }
             };
-
-    private void unlockFocus() {
-        try {
-            // 1. 获取相机设备的 CameraDevice 对象
-            CameraDevice cameraDevice = mCameraDevice;
-
-            // 2. 创建一个 CaptureRequest.Builder 对象
-            CaptureRequest.Builder captureBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-
-            // 3. 在 CaptureRequest.Builder 对象中设置焦点模式为 FOCUS_MODE_CONTINUOUS_PICTURE
-            captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-
-            // 4. 创建一个空的 CaptureRequest 对象，将 CaptureRequest.Builder 对象中的参数设置到 CaptureRequest 对象中
-            CaptureRequest captureRequest = captureBuilder.build();
-
-            // 5. 调用 CameraCaptureSession.setRepeatingRequest() 方法，使用上述 CaptureRequest 对象作为参数，以持续捕获相机帧
-            mCaptureSession.setRepeatingRequest(captureRequest, null, null);
-
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
-    }
 
     private int getImageRotation() {
         int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
@@ -496,22 +501,21 @@ public class FaceRecognize {
             outputStream.write(data);
             outputStream.close();
             Log.e(TAG, "Image saved to " + file.getAbsolutePath());
-            if (JNI_JustSaveFaceImage(file.getAbsolutePath()) == -1) {
-                showToast("未识别到人脸，上传人脸失败!!!");
-                return;
-            }
+
+            inUploadingFaceImage = false;
+            if (progressDialog != null && progressDialog.isShowing())
+                activity.runOnUiThread(() -> progressDialog.dismiss());
 
             activity.runOnUiThread(() -> {
                 showImageView.setImageBitmap(rotatedBitmap);
                 showImageView.setVisibility(View.VISIBLE);
             });
 
-            try {
-                Thread.sleep(1500);
-            } catch (InterruptedException e) {
-                Log.e(TAG, "saveImage: e->" + e);
-                e.printStackTrace();
-            }
+
+            if (JNI_JustSaveFaceImage(file.getAbsolutePath()) == -1)
+                showToast("未识别到人脸，上传人脸失败!!!");
+            else
+                showToast("上传人脸成功");
 
             activity.runOnUiThread(() ->
                     showImageView.setVisibility(View.GONE)
@@ -587,19 +591,18 @@ public class FaceRecognize {
     }
 
     private void showToast(final String text) {
-        Log.e(TAG, "showToast: ");
 //        final Activity activity = activity;
-        if (activity != null && !activity.isDestroyed())
+        if (activity != null && !activity.isDestroyed() && !activity.isFinishing())
             activity.runOnUiThread(() -> Toast.makeText(activity, text, Toast.LENGTH_SHORT).show());
     }
 
-    public native void JNI_FaceDetection(long matAddrGray, long matAddrRgba);
+    public static native int JNI_Initialization(String workPath, String dataDirectory, String cascadeFile, int arithmetic);
 
-    public native void JNI_EyeDetection(long matAddrGray, long matAddrRgba);
+    public static native void JNI_Close();
 
-    public native int JNI_Initialization(String workPath, String dataDirectory, String cascadeFile, int arithmetic);
+    public native void JNI_FaceDetection(long matAddressGray, long matAddressRgba);
+
+    public native void JNI_EyeDetection(long matAddressGray, long matAddressRgba);
 
     public native int JNI_JustSaveFaceImage(String oldFaceImagePath);
-
-    public native void JNI_Close();
 }

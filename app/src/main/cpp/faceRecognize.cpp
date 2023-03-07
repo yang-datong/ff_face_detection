@@ -15,8 +15,8 @@ FaceRecognizer::FaceRecognizer(string workPath,string folderPath,cv::Size newSiz
 int FaceRecognizer::FindImages(const string& folderPath, cv::CascadeClassifier& faceCascade, const cv::Size& newSize, vector<cv::Mat>& images, vector<int>& labels, vector<string>& labelsName, int& index) {
     DIR *dir;
     struct dirent *ent;
-    if ((dir = opendir(folderPath.c_str())) != NULL) {
-        while ((ent = readdir(dir)) != NULL) {
+    if ((dir = opendir(folderPath.c_str())) != nullptr) {
+        while ((ent = readdir(dir)) != nullptr) {
             if (ent->d_type == DT_REG) {  // 判断是否是普通文件
                 string filename = ent->d_name;
                 string filepath = folderPath + "/" + filename;
@@ -31,9 +31,8 @@ int FaceRecognizer::FindImages(const string& folderPath, cv::CascadeClassifier& 
                         continue;
                     resize(face_roi, face_roi, newSize);
                     images.push_back(face_roi);
-                    labels.push_back(index);
+                    labels.push_back(index++);
                     labelsName.push_back(filename);
-                    index++;
                 }
             } else if (ent->d_type == DT_DIR && strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0) {  // 判断是否是文件夹
                 string subFolderPath = folderPath + "/" + ent->d_name;
@@ -60,8 +59,12 @@ int FaceRecognizer::FillData(vector<cv::Mat>& images, vector<int>& labels) {
         LOGE("FindImages Failed");
         return -1;
     }
+    LOGE("images count -> %ld",images.size());
+    LOGE("labels count -> %ld",labels.size());
+    LOGE("labelsName count -> %ld",labelsName.size());
+    LOGE("index -> %d",index);
 
-    std::ofstream ofs(_labelFile);
+    std::ofstream ofs(labelFile);
     for (const auto& lab : labelsName)
         ofs << lab << std::endl;
 
@@ -73,29 +76,30 @@ int FaceRecognizer::FetchModel(){
     switch (_arithmetic) {
         case 1:
             recognizer = cv::face::EigenFaceRecognizer::create();
-            _local_model_file = _workPath + "/model/Eigen_model.yml";
-            _labelFile = _workPath + "/model/Eigen_labels.npy";
+            localModelFile = _workPath + "/model/Eigen_model.yml";
+            labelFile = _workPath + "/model/Eigen_labels.npy";
             keys = EIGEN_FACE_KEYS;
             break;
         case 2:
             recognizer = cv::face::LBPHFaceRecognizer::create();
-            _local_model_file = _workPath + "/model/LBPH_model.yml";
-            _labelFile = _workPath + "/model/LBPH_labels.npy";
+            localModelFile = _workPath + "/model/LBPH_model.yml";
+            labelFile = _workPath + "/model/LBPH_labels.npy";
             keys = LBPH_FACE_KEYS;
             break;
         case 3:
             recognizer = cv::face::FisherFaceRecognizer::create();
-            _local_model_file = _workPath + "/model/Fisher_model.yml";
-            _labelFile = _workPath + "/model/Fisher_labels.npy";
+            localModelFile = _workPath + "/model/Fisher_model.yml";
+            labelFile = _workPath + "/model/Fisher_labels.npy";
             keys = FISHER_FACE_KEYS;
             break;
     }
 
-    if (access(_local_model_file.c_str(), F_OK) != 0) {
+    if (access(localModelFile.c_str(), F_OK) != 0) {
         vector<cv::Mat> images;
         vector<int> labels;
-        LOGE("Train done out model -> %s",_local_model_file.c_str());
+        LOGE("Train done out model -> %s",localModelFile.c_str());
         struct timespec start_time{}, end_time{};
+
         LOGE("Filling image ...");
         clock_gettime(CLOCK_REALTIME, &start_time);
         if(FillData(images,labels) == -1){
@@ -111,14 +115,15 @@ int FaceRecognizer::FetchModel(){
         recognizer->train(images,labels);
         clock_gettime(CLOCK_REALTIME, &end_time);
         LOGE("Number of seconds -> %ld",end_time.tv_sec - start_time.tv_sec);
-        LOGE("Train done out model -> %s",_local_model_file.c_str());
-        recognizer->save(_local_model_file);
+        LOGE("Train done out model -> %s",localModelFile.c_str());
+
+        recognizer->save(localModelFile);
     }else{
         LOGE("Reading local mode ...");
-        recognizer->read(_local_model_file);
+        recognizer->read(localModelFile);
     }
 
-    std::ifstream f(_labelFile);
+    std::ifstream f(labelFile);
     if (f.is_open()) {
         std::string line;
         while (std::getline(f, line)) {
@@ -154,14 +159,16 @@ int CheckFilePath(){
         return -1;
     }
 
-    if(gArithmetic != 1 && gArithmetic != 2 && gArithmetic != 3){
+    //    if(gArithmetic != 1 && gArithmetic != 2 && gArithmetic != 3){
+    if(gArithmetic != 2){
+        // TODO : Just support LBPHFaceRecognizer arithmetic at now, because depend the fast update model,unless spend abundance time retrain model
         LOGE("Arithmetic format error");
         return -1;
     }
     return 0;
 }
 
-JNIEXPORT int JNICALL JNI_Initialization(JNIEnv *env, jobject thi, jstring workPath,jstring dataDirectory,jstring cascadeFile,jint useArithmetic) {
+JNIEXPORT int JNICALL JNI_Initialization(JNIEnv *env, jclass thi, jstring workPath,jstring dataDirectory,jstring cascadeFile,jint useArithmetic) {
     gWorkPath = env->GetStringUTFChars(workPath,nullptr);
     gDirectory = gWorkPath + "/" + env->GetStringUTFChars(dataDirectory,nullptr);
     gCascadeFile = gWorkPath + "/" + env->GetStringUTFChars(cascadeFile,nullptr);
@@ -192,28 +199,60 @@ JNIEXPORT int JNICALL JNI_JustSaveFaceImage(JNIEnv *env, jobject thi,jstring old
     vector<cv::Rect> faces;
     faceCascade.detectMultiScale(grayImg, faces, 1.1, 5);
 
+
+    long labelCount = gFace->labelsName.size();
+    LOGE("labelCount -> %ld",labelCount);
+
+    vector<cv::Mat> images;
+    vector<int> labels;
+    vector<string> newLabelsName;
+    //string newLabelsName;
+
     cv::Mat face_roi;
     for (const auto& face : faces) {
-        //face_roi = grayImg(face); //save gray image
-        face_roi = img(face); //save color image
+        face_roi = grayImg(face); //save gray image
+                                  //face_roi = img(face); //save color image
         if (face_roi.empty())
             continue;
         resize(face_roi, face_roi, gNewSize);
-        //images.push_back(face_roi);
-        //labels.push_back(index);
-        //labelsName.push_back(filename);
-        //index++;
+        images.push_back(face_roi);
+        labels.push_back(labelCount++); // addition index "0"
+        newLabelsName.push_back("识别成功!");
+        //newLabelsName = "User-Just-Now-Add";
+        gFace->labelsName.push_back("识别成功!");
     }
+
     if(!face_roi.empty()){
         if (!cv::imwrite(filepath, face_roi)){
             std::cerr << "Failed to save image." << std::endl;
             return -1;
         }
-        /* TODO: 先将class指针变为全局，这样太麻烦了 */
-        //_recognizer->update(images,labels);
+        if (gFace->recognizer.empty()){
+            LOGE("Pointer recognizer is empty");
+            return -1;
+        }
 
+        struct timespec start_time{}, end_time{};
+        LOGE("Model Updating ...");
+        clock_gettime(CLOCK_REALTIME, &start_time);
+        gFace->recognizer->update(images,labels);
+        clock_gettime(CLOCK_REALTIME, &end_time);
+        LOGE("Number of seconds -> %ld",end_time.tv_sec - start_time.tv_sec);
+        gFace->recognizer->write(gFace->localModelFile);
+        LOGE("Update done out model -> %s",gFace->localModelFile.c_str());
+
+        FILE *f = fopen(gFace->labelFile.c_str(), "a+");
+        if(!f){
+            LOGE("Don't find the %s file",gFace->labelFile.c_str());
+            return -1;
+        }
+        for (const auto& it : newLabelsName) {
+            fprintf(f, "%s", (it + "\n").c_str());
+        }
+        fclose(f);
     }else{
         LOGE("empty");
+        return -1;
     }
 
     return 0;
@@ -241,7 +280,9 @@ JNIEXPORT void JNICALL JNI_FaceDetection(JNIEnv *env, jobject thi, jlong matAddr
         //cv::putText(frame, std::to_string(confidence), cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 255, 0), 2);;
         if(confidence < gFace->keys) {
             string name = gFace->labelsName[label];
+            LOGE("index -> %d", label);
             LOGE("name -> %s", name.c_str());
+            LOGE("predict -> %f", confidence);
 
             jmethodID method = env->GetMethodID(env->GetObjectClass(thi), "showToast",
                     "(Ljava/lang/String;)V");
@@ -262,6 +303,7 @@ JNIEXPORT void JNICALL JNI_FaceDetection(JNIEnv *env, jobject thi, jlong matAddr
             //显示红色框
             //cv::rectangle(mRgb, face, cv::Scalar(0, 0, 255), 2);
             //cv::putText(mRgb, "unknown", cv::Point(face.x, face.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.9, cv::Scalar(0, 0, 255), 2);
+            LOGE("Unkonw predict:%f , keys:%f",confidence,gFace->keys);
         }
     }
 }
@@ -283,7 +325,7 @@ JNIEXPORT void JNICALL JNI_EyeDetection(JNIEnv *env, jobject thi, jlong matAddre
     //}
 }
 
-JNIEXPORT void JNICALL JNI_Close(JNIEnv *env, jobject thi) {
+JNIEXPORT void JNICALL JNI_Close(JNIEnv *env, jclass thi) {
     if (gFace){
         delete gFace;
         LOGE("gFace Closed");

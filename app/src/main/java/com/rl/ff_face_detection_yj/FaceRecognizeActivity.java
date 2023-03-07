@@ -39,10 +39,4 @@ public class FaceRecognizeActivity extends AppCompatActivity {
         faceRecognize.onPause();
         super.onPause();
     }
-
-    @Override
-    protected void onDestroy() {
-        faceRecognize.onDestroy();
-        super.onDestroy();
-    }
 }

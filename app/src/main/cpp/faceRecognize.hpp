@@ -25,8 +25,10 @@ using std::vector;
 
 class FaceRecognizer{
 	public:
+		double keys;
+		string labelFile;
+		string localModelFile;
 		std::vector<string> labelsName;
-		int keys = -1;
 		cv::Ptr<cv::face::FaceRecognizer> recognizer = nullptr;
 
 		FaceRecognizer(string workPath,string folderPath,cv::Size newSize ,const string& cascadeFile,int arithmetic);
@@ -42,12 +44,9 @@ class FaceRecognizer{
 		int _arithmetic;
 		cv::CascadeClassifier _faceCascade;
 
-		const int EIGEN_FACE_KEYS = 4500;
-		const int LBPH_FACE_KEYS = 100;
-		const int FISHER_FACE_KEYS = 4500;
-
-		string _local_model_file ;
-		string _labelFile;
+		const double EIGEN_FACE_KEYS = 4500.0;
+		const double LBPH_FACE_KEYS = 85.0;
+		const double FISHER_FACE_KEYS = 4500.0;
 };
 
 #endif /* end of include guard: MAIN_HPP_VDJI1OUJ */
